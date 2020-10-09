@@ -6,11 +6,14 @@ import re
 import time
 import ssl
 
+from dotenv import load_dotenv
+
 # Third party imports
 from jsondiff import diff
 from slack import WebClient
 
 ssl._create_default_https_context = ssl._create_unverified_context
+load_dotenv()
 
 
 def get_postman_collections(connection, api_key):
@@ -30,7 +33,8 @@ def get_postman_collections(connection, api_key):
     if response.status == 200:
         return response
     else:
-        raise Exception("Exited with status code " + str(response.status) + '. '+ str(json.loads(response.read())['error']['message']))
+        raise Exception("Exited with status code " + str(response.status) +
+                        '. ' + str(json.loads(response.read())['error']['message']))
 
 
 def regex(value):
@@ -38,7 +42,8 @@ def regex(value):
     From the detected changes object, we check if there have been any change to the keys and values.
     We then check if there are any new deletions or insertions using regular expressions on the parsed object.
     """
-    change_detection_regex = ["(?<='key': )[^,||}]*", "(?<='value': )[^,||}]*", "(?<=delete: \[)[^]]+", "(?<=insert: \[)[^]]+"]
+    change_detection_regex = ["(?<='key': )[^,||}]*", "(?<='value': )[^,||}]*",
+                              "(?<=delete: \[)[^]]+", "(?<=insert: \[)[^]]+"]
     return [re.findall(regex, value) for regex in change_detection_regex]
 
 
@@ -54,7 +59,8 @@ def get_selected_collection(collection_id, connection, api_key):
         'X-Api-Key': api_key,
         'Content-type': 'multipart/form-data; boundary={}'.format(boundary)
     }
-    connection.request("GET", "/collections/" + collection_id, payload, headers)
+    connection.request("GET", "/collections/" +
+                       collection_id, payload, headers)
     response = connection.getresponse()
     if response.status == 200:
         data = json.loads(response.read())
@@ -66,7 +72,7 @@ def get_selected_collection(collection_id, connection, api_key):
             with open(filepath, "w") as f:
                 f.write("{}")
                 f.close()
-        
+
         # Difference between the data received as part of the current API call and the data that previously existed in the .txt file
         # The difference is computed twice to detect changes w.r.t to addition as well as deletion of key value pairs
         with open(filepath, "r+") as f:
@@ -78,23 +84,29 @@ def get_selected_collection(collection_id, connection, api_key):
             f.close()
 
         # A list of changes in the existing API are determined
-        changes_detected = [regex(str(value)) for value in [old_value, new_value]]
+        changes_detected = [regex(str(value))
+                            for value in [old_value, new_value]]
 
         # When changes are detected, the .txt file is updated according to the new API schema
         if changes_detected:
             with open(filepath, "w+") as f:
                 json.dump(data, f)
                 f.close()
-        
+
         # Formatting the changes detected to make it user-friendly
-        keys_old = "Old name of the query paramter: " + ' '.join(changes_detected[0][0])
-        keys_new = "Updated name of the query parameter: " + ' '.join(changes_detected[1][0])
-        keys_inserted = "Name of the query parameter newly added: " + ' '.join(changes_detected[1][3])
-        keys_deleted = "Name of the query paramter that is deleted " + ' '.join(changes_detected[0][2])
+        keys_old = "Old name of the query paramter: " + \
+            ' '.join(changes_detected[0][0])
+        keys_new = "Updated name of the query parameter: " + \
+            ' '.join(changes_detected[1][0])
+        keys_inserted = "Name of the query parameter newly added: " + \
+            ' '.join(changes_detected[1][3])
+        keys_deleted = "Name of the query paramter that is deleted " + \
+            ' '.join(changes_detected[0][2])
 
         return keys_old + "\n" + keys_new + "\n" + keys_inserted + "\n" + keys_deleted
     else:
-        raise Exception("Exited with status code " + str(response.status) + '. '+ str(json.loads(response.read())['error']['message']))
+        raise Exception("Exited with status code " + str(response.status) +
+                        '. ' + str(json.loads(response.read())['error']['message']))
 
 
 def main():
@@ -105,13 +117,13 @@ def main():
         print("-----------------------------------------------------------")
 
         # The Postman API key is required to access all the postman collections in a user's account
-        print("\nLet's begin by linking your Postman account with our service!")
-        api_key = input("Enter the API key for you Postman account: ")
+        api_key = os.getenv('POSTMAN_TOKEN')
 
         # To get the collections present in a user's Postman account
-        collections_response = get_postman_collections(postman_connection, api_key)
+        collections_response = get_postman_collections(
+            postman_connection, api_key)
         all_collections = json.loads(collections_response.read())
-        
+
         while True:
             print("\nChoose a collection you would like to integrate:")
 
@@ -122,26 +134,29 @@ def main():
 
             if 1 <= int(collection_choice) <= len(all_collections['collections']):
                 break
-        
-        selected_collection = all_collections['collections'][int(collection_choice) - 1]
-        
+
+        selected_collection = all_collections['collections'][int(
+            collection_choice) - 1]
+
         while True:
             # Get the changes that need to be sent to slack
-            changes_detected = get_selected_collection(selected_collection['uid'], postman_connection, api_key)
-            
-            # Create a slack client - ADD SlackBot token here
-            slack_web_client = WebClient(token = "") 
+            changes_detected = get_selected_collection(
+                selected_collection['uid'], postman_connection, api_key)
+
+            # Create a slack client
+            slack_web_client = WebClient(token=os.getenv('SLACKBOT_TOKEN'))
 
             # Slack Channel to post the message
             channel = "postman"
 
             # Get the onboarding message payload
             message = {
-                        "channel": channel,
-                        "blocks": [
-                            { "type": "section", "text": { "type": "plain_text", "text": changes_detected}}
-                        ],
-                    }
+                "channel": channel,
+                "blocks": [
+                    {"type": "section", "text": {
+                        "type": "plain_text", "text": changes_detected}}
+                ],
+            }
 
             # Post the onboarding message in Slack
             slack_web_client.chat_postMessage(**message)
@@ -149,6 +164,6 @@ def main():
     except Exception as e:
         print(e)
 
-    
+
 if __name__ == '__main__':
     main()

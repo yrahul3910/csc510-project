@@ -35,6 +35,7 @@ Sync Ends is an automated bridge to sync service owners and service consumers. E
 2. If you do not have any pre-exiting collections on Postman, import this sample [collection](https://www.getpostman.com/collections/dfa93d217bf211237c8f)
 3. To integrate with the Sync Ends service, a Postman API key is required. Generate API key by visiting this [page](https://web.postman.co/settings/me/api-keys)
 4. Copy the generated API key. This is required during the time of execution
+5. Add the key to `.env` as `POSTMAN_TOKEN`.
 
 ### Create a slack team and slackbot(You can skip this section if you already have a slack bot API token) 
 
