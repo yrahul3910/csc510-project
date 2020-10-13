@@ -73,6 +73,9 @@ python3 sync_ends_service.py
 ```
 ## Authors
 
+* Rahul Yedida
+* Shuzheng Wang
+* Jialin Cui
 * Adithya Raghu Ganesh
 * Meghana Ravindra Vasist
 * Shivaprakash Balasubramanian
@@ -82,3 +85,10 @@ python3 sync_ends_service.py
 ## License
 
 This project is licensed under the MIT License.
+
+# Known issue
+While the PyPI package is called slackclient, you import the module using the name slack:
+```
+from slack import WebClient
+```
+You may find this not work on your first try, before you change moudle name or try to get the old version of slackclient, simply uninstall slackclient then install it again may give you a easy fix.

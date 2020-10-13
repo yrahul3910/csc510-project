@@ -118,12 +118,13 @@ def main():
 
         # The Postman API key is required to access all the postman collections in a user's account
         api_key = os.getenv('POSTMAN_TOKEN')
-
         # To get the collections present in a user's Postman account
         collections_response = get_postman_collections(
             postman_connection, api_key)
         all_collections = json.loads(collections_response.read())
-
+        #print(collections_response)
+        #print(collections_response.read())
+        #print(all_collections)
         while True:
             print("\nChoose a collection you would like to integrate:")
 
@@ -138,6 +139,9 @@ def main():
         selected_collection = all_collections['collections'][int(
             collection_choice) - 1]
 
+        collection_name = str(all_collections['collections'][int(
+            collection_choice) - 1]['name'])
+
         while True:
             # Get the changes that need to be sent to slack
             changes_detected = get_selected_collection(
@@ -146,8 +150,24 @@ def main():
             # Create a slack client
             slack_web_client = WebClient(token=os.getenv('SLACKBOT_TOKEN'))
 
+            # Check if this channel already existed, if not create a new one
+            channel_list = slack_web_client.conversations_list(types="public_channel")
+            existed = False
+            for channel in range(len(channel_list.data['channels'])):
+                if collection_name == channel_list.data['channels'][channel]['name']:
+                    existed = True
+           
+            dic = '{\'name\':\''+collection_name.lower().replace(" ","_")+'\'}'
+            dic = eval(dic)
+
+            if not existed:
+                response = slack_web_client.api_call(
+                api_method='conversations.create',
+                json=dic
+                )
+
             # Slack Channel to post the message
-            channel = "postman"
+            channel = collection_name.lower().replace(" ","_")
 
             # Get the onboarding message payload
             message = {
@@ -163,7 +183,6 @@ def main():
             time.sleep(3600)
     except Exception as e:
         print(e)
-
 
 if __name__ == '__main__':
     main()
