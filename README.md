@@ -92,3 +92,11 @@ While the PyPI package is called slackclient, you import the module using the na
 from slack import WebClient
 ```
 You may find this not work on your first try, before you change moudle name or try to get the old version of slackclient, simply uninstall slackclient then install it again may give you a easy fix.
+
+The current app 'bots' we are using does not have the right to create a channel, so I crate my own app and give it the right to create channel. The link is here https://api.slack.com/apps After go to this page just click Create New App, give it whatever name you want and a workplace you want to add it. Then I selected Permission to add the permission we need. Simply give this link  https://slack.com/oauth/v2/authorize as the Redirect URLs. After this in the Bots Token Scope section choose add an OAuth scope.
+Based on the api we are using:
+conversations.list needs: channels:read  groups:read  im:read mpim:read
+conversations.create needs: channels:manage  groups:write  im:write  mpim:write
+chat.postMessage needs: chat:write
+We can add more along the way when we need new scope.
+After add all these permissions, just choose install app, and you will get a token that can be used.
