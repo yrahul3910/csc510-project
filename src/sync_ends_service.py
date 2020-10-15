@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 # Third party imports
 from jsondiff import diff
 from slack import WebClient
+from slackeventsapi import SlackEventAdapter
 
 ssl._create_default_https_context = ssl._create_unverified_context
 load_dotenv()
@@ -144,22 +145,38 @@ def main():
 
         while True:
             # Get the changes that need to be sent to slack
-            changes_detected = get_selected_collection(
-                selected_collection['uid'], postman_connection, api_key)
+            changes_detected = get_selected_collection(selected_collection['uid'], postman_connection, api_key)
 
             # Create a slack client
-            slack_web_client = WebClient(token=os.getenv('SLACKBOT_TOKEN'))
+            slack_web_client = WebClient(token=os.getenv('SLACK_BOT_TOKEN'))
+            # Create a slack event adapter
+            slack_events_adapter = SlackEventAdapter(signing_secret=os.getenv('SLACK_SIGNING_SECRET'), endpoint="/slack/events")
+
+            # Example responder to greetings
+            @slack_events_adapter.on("message")
+            def handle_message(event_data):
+                message = event_data["event"]
+                # If the incoming message contains "hi", then respond with a "Hello" message
+                if message.get("subtype") is None and "hi" in message.get('text'):
+                    channel = message["channel"]
+                    message = "Hello <@%s>! :tada:" % message["user"]
+                    slack_web_client.chat_postMessage(channel=channel, text=message)
+            
+            # Error events
+            @slack_events_adapter.on("error")
+            def error_handler(err):
+                print("ERROR: " + str(err))
 
             # Check if this channel already existed, if not create a new one
             channel_list = slack_web_client.conversations_list(types="public_channel")
             existed = False
             for channel in range(len(channel_list.data['channels'])):
-                if collection_name == channel_list.data['channels'][channel]['name']:
+                if collection_name.lower().replace(" ","_") == channel_list.data['channels'][channel]['name']:
                     existed = True
            
             dic = '{\'name\':\''+collection_name.lower().replace(" ","_")+'\'}'
             dic = eval(dic)
-
+            print(existed)
             if not existed:
                 response = slack_web_client.api_call(
                 api_method='conversations.create',
@@ -180,6 +197,7 @@ def main():
 
             # Post the onboarding message in Slack
             slack_web_client.chat_postMessage(**message)
+            slack_events_adapter.start(port=3000)
             time.sleep(3600)
     except Exception as e:
         print(e)
