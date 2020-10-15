@@ -128,20 +128,20 @@ def main():
         #print(all_collections)
         while True:
             print("\nChoose a collection you would like to integrate:")
-
+            # A list to for all the postman collection name to be used latter
+            collection_list = []
             # User selects a specfic collection to be linked to the sync ends service
             for index, collection in enumerate(all_collections['collections'], 1):
                 print(str(index) + '. ' + str(collection['name']))
+                collection_list.append(str(collection['name']))
             collection_choice = input("\nEnter your choice: ")
 
             if 1 <= int(collection_choice) <= len(all_collections['collections']):
                 break
 
-        selected_collection = all_collections['collections'][int(
-            collection_choice) - 1]
+        selected_collection = all_collections['collections'][int(collection_choice) - 1]
 
-        collection_name = str(all_collections['collections'][int(
-            collection_choice) - 1]['name'])
+        collection_name = str(all_collections['collections'][int(collection_choice) - 1]['name'])
 
         while True:
             # Get the changes that need to be sent to slack
@@ -151,17 +151,49 @@ def main():
             slack_web_client = WebClient(token=os.getenv('SLACK_BOT_TOKEN'))
             # Create a slack event adapter
             slack_events_adapter = SlackEventAdapter(signing_secret=os.getenv('SLACK_SIGNING_SECRET'), endpoint="/slack/events")
-
-            # Example responder to greetings
-            @slack_events_adapter.on("message")
-            def handle_message(event_data):
-                message = event_data["event"]
-                # If the incoming message contains "hi", then respond with a "Hello" message
-                if message.get("subtype") is None and "hi" in message.get('text'):
-                    channel = message["channel"]
-                    message = "Hello <@%s>! :tada:" % message["user"]
-                    slack_web_client.chat_postMessage(channel=channel, text=message)
             
+            # responder to user's request on collection information
+            @slack_events_adapter.on("app_mention")
+            def handle_app_mention(event_data):
+                # slack event, dictionary obj
+                message = event_data["event"]
+                # the text user send 
+                text = message.get("text")
+                # if key word in text then we consider to send info about a certein colletion
+                if "show" in text:
+                    for name in collection_list:
+                        if name in text:
+                            # Check if this channel already existed, if not create a new one
+                            channel_list = slack_web_client.conversations_list(types="public_channel")
+                            existed = False
+                            for channel in range(len(channel_list.data['channels'])):
+                                if name.lower().replace(" ","_") == channel_list.data['channels'][channel]['name']:
+                                    existed = True
+           
+                            dic = '{\'name\':\''+name.lower().replace(" ","_")+'\'}'
+                            dic = eval(dic)
+                            
+                            if not existed:
+                                response = slack_web_client.api_call(
+                                api_method='conversations.create',
+                                json=dic
+                                )
+
+                            # Slack Channel to post the message
+                            channel = name.lower().replace(" ","_")
+
+                            # Get the onboarding message payload
+                            message = {
+                                "channel": channel,
+                                "blocks": [
+                                    {"type": "section", "text": {
+                                    "type": "plain_text", "text": changes_detected}}
+                                ],
+                            }
+
+                            # Post the onboarding message in Slack
+                            slack_web_client.chat_postMessage(**message)
+                
             # Error events
             @slack_events_adapter.on("error")
             def error_handler(err):
@@ -197,6 +229,7 @@ def main():
 
             # Post the onboarding message in Slack
             slack_web_client.chat_postMessage(**message)
+            # Start the server to listen to event
             slack_events_adapter.start(port=3000)
             time.sleep(3600)
     except Exception as e:
