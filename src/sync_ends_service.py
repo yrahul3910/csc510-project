@@ -157,6 +157,8 @@ def main():
             def handle_app_mention(event_data):
                 # slack event, dictionary obj
                 message = event_data["event"]
+                # get the channel that the bot is @ in
+                current_channel = message["channel"]
                 # the text user send 
                 text = message.get("text")
                 # if key word in text then we consider to send info about a certein colletion
@@ -192,6 +194,8 @@ def main():
                             }
 
                             # Post the onboarding message in Slack
+                            slack_web_client.chat_postMessage(**message)
+                            message["channel"] = current_channel
                             slack_web_client.chat_postMessage(**message)
                 
             # Error events
