@@ -151,11 +151,9 @@ def main():
             # Create a slack event adapter to responds to slack event API
             slack_events_adapter = SlackEventAdapter(signing_secret=os.getenv('SLACK_SIGNING_SECRET'), endpoint="/slack/events")
             backup_channel_list = slack_web_client.conversations_list(types="public_channel")
+            name_id = []
             for channel in range(len(backup_channel_list.data['channels'])):
-                if "general" == backup_channel_list.data['channels'][channel]['name']:
-                    general_id = backup_channel_list.data['channels'][channel]['id']
-                    print(general_id)
-
+                name_id.append((backup_channel_list.data['channels'][channel]['name'], backup_channel_list.data['channels'][channel]['id']))
             # responder to user's greeting messages
             @slack_events_adapter.on("message")
             def handle_message(event_data):
@@ -168,21 +166,25 @@ def main():
                     slack_web_client.chat_postMessage(channel=channel, text=message)
             
             # responder to channel_rename event
+            @slack_events_adapter.on("channel_created")
+            def handle_channel_created(event_data):
+                message = event_data["event"]
+                new_name = message["channel"]["name"]
+                channel_id = message["channel"]["id"]
+                name_id.append((new_name,channel_id))
+            
+            # responder to channel_rename event
             @slack_events_adapter.on("channel_rename")
             def handle_channel_rename(event_data):
-                print(event_data)
                 message = event_data["event"]
-                print(message)
                 new_name = message["channel"]["name"]
-                print(new_name)
                 channel_id = message["channel"]["id"]
-                print(channel_id)
                 for channel in range(len(backup_channel_list.data['channels'])):
                     if channel_id == backup_channel_list.data['channels'][channel]['id']:
                         old_name = backup_channel_list.data['channels'][channel]['name']
                     if "general" == backup_channel_list.data['channels'][channel]['name']:
                         general_id = backup_channel_list.data['channels'][channel]['id']
-                text = "New channel name: %s detected, the old name is old_name if this is a postman collection channel we do not suggest you to change the channel name" % new_name
+                text = "New channel name: %s detected, the old name is %s if this is a postman collection channel we do not suggest you to change the channel name" % (new_name, old_name)
                 slack_web_client.chat_postMessage(channel=general_id, text=text)
             
             # responder to app_uninstalled
