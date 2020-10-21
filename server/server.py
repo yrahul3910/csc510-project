@@ -1,5 +1,5 @@
 from flask import Flask, request
-from flask_restful import Resource, Api
+from flask_restful import Resource, Api, reqparse
 from sqlalchemy import create_engine
 from json import dumps
 from flask import jsonify
@@ -36,9 +36,23 @@ class Employee_info(Resource):
         return jsonify(result)
 
 
+class SlackEvents(Resource):
+    def __init__(self):
+        self.parser = reqparse.RequestParser()
+        self.parser.add_argument('challenge')
+
+    def post(self):
+        args = self.parser.parse_args()
+        if 'challenge' in args.keys():
+            return args['challenge']
+
+
 # Publishing APIs
 api.add_resource(Employee, '/employee/list')  # Route 1
 api.add_resource(Employee_info, '/employee')  # Route 2
+
+# Slack APIs
+api.add_resource(SlackEvents, '/slack/events')
 
 if __name__ == '__main__':
     app.run(port=5002)
