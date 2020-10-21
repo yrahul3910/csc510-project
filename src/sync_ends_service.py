@@ -151,7 +151,7 @@ def main():
             # Create a slack event adapter to responds to slack event API
             slack_events_adapter = SlackEventAdapter(signing_secret=os.getenv('SLACK_SIGNING_SECRET'), endpoint="/slack/events")
             
-            # Example responder to user's greeting messages
+            # responder to user's greeting messages
             @slack_events_adapter.on("message")
             def handle_message(event_data):
                 message = event_data["event"]
@@ -161,9 +161,8 @@ def main():
                     channel = message["channel"]
                     message = "Hello <@%s>! :tada:" % message["user"]
                     slack_web_client.chat_postMessage(channel=channel, text=message)
-
-
-            # Example reaction emoji echo
+            
+            # reaction emoji echo
             @slack_events_adapter.on("reaction_added")
             def reaction_added(event_data):
                 event = event_data["event"]
@@ -171,6 +170,12 @@ def main():
                 channel = event["item"]["channel"]
                 text = ":%s:" % emoji
                 slack_web_client.chat_postMessage(channel=channel, text=text)
+            
+            # responder to app_uninstalled
+            @slack_events_adapter.on("app_uninstalled")
+            def handle_message(event_data):
+                #app is uninstalled, exits.
+                exit(0)
 
             # responder to user's request on collection information
             @slack_events_adapter.on("app_mention")
