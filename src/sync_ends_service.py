@@ -123,12 +123,10 @@ def main():
         collections_response = get_postman_collections(
             postman_connection, api_key)
         all_collections = json.loads(collections_response.read())
-        #print(collections_response)
-        #print(collections_response.read())
-        #print(all_collections)
+
         while True:
             print("\nChoose a collection you would like to integrate:")
-            # A list to for all the postman collection name to be used latter
+            # A list of all the postman collection name to be used latter
             collection_list = []
             # User selects a specfic collection to be linked to the sync ends service
             for index, collection in enumerate(all_collections['collections'], 1):
@@ -147,11 +145,33 @@ def main():
             # Get the changes that need to be sent to slack
             changes_detected = get_selected_collection(selected_collection['uid'], postman_connection, api_key)
 
-            # Create a slack client
+            # Create a slack client to use slack API
             slack_web_client = WebClient(token=os.getenv('SLACK_BOT_TOKEN'))
-            # Create a slack event adapter
+
+            # Create a slack event adapter to responds to slack event API
             slack_events_adapter = SlackEventAdapter(signing_secret=os.getenv('SLACK_SIGNING_SECRET'), endpoint="/slack/events")
             
+            # Example responder to user's greeting messages
+            @slack_events_adapter.on("message")
+            def handle_message(event_data):
+                message = event_data["event"]
+                # If the incoming message contains "hi" and "sync ends service", 
+                # then respond with a "Hello" message and give user choices aboutcollections
+                if message.get("subtype") is None and "hi" in message.get('text') and "sync ends service" in message.get('text'):
+                    channel = message["channel"]
+                    message = "Hello <@%s>! :tada:" % message["user"]
+                    slack_web_client.chat_postMessage(channel=channel, text=message)
+
+
+            # Example reaction emoji echo
+            @slack_events_adapter.on("reaction_added")
+            def reaction_added(event_data):
+                event = event_data["event"]
+                emoji = event["reaction"]
+                channel = event["item"]["channel"]
+                text = ":%s:" % emoji
+                slack_web_client.chat_postMessage(channel=channel, text=text)
+
             # responder to user's request on collection information
             @slack_events_adapter.on("app_mention")
             def handle_app_mention(event_data):
