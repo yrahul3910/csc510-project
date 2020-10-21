@@ -165,7 +165,7 @@ def main():
                     message = "Hello <@%s>! :tada:" % message["user"]
                     slack_web_client.chat_postMessage(channel=channel, text=message)
             
-            # responder to channel_rename event
+            # responder to channel_created event
             @slack_events_adapter.on("channel_created")
             def handle_channel_created(event_data):
                 message = event_data["event"]
@@ -173,6 +173,15 @@ def main():
                 channel_id = message["channel"]["id"]
                 name_id.append((new_name,channel_id))
             
+            # responder to channel_deleted event
+            @slack_events_adapter.on("channel_created")
+            def handle_channel_created(event_data):
+                message = event_data["event"]
+                channel_id = message["channel"]
+                for i in range(len(name_id)):
+                    if name_id[i][1] == channel_id:
+                        print(True)
+
             # responder to channel_rename event
             @slack_events_adapter.on("channel_rename")
             def handle_channel_rename(event_data):
