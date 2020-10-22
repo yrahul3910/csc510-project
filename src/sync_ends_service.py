@@ -126,7 +126,7 @@ def main():
 
         while True:
             print("\nChoose a collection you would like to integrate:")
-            # A list to for all the postman collection name to be used latter
+            # A list of all the postman collection name to be used latter
             collection_list = []
             # User selects a specfic collection to be linked to the sync ends service
             for index, collection in enumerate(all_collections['collections'], 1):
@@ -148,11 +148,69 @@ def main():
             changes_detected = get_selected_collection(
                 selected_collection['uid'], postman_connection, api_key)
 
-            # Create a slack client
+            # Create a slack client to use slack API
             slack_web_client = WebClient(token=os.getenv('SLACK_BOT_TOKEN'))
-            # Create a slack event adapter
-            slack_events_adapter = SlackEventAdapter(signing_secret=os.getenv(
-                'SLACK_SIGNING_SECRET'), endpoint="/slack/events")
+
+
+            # Create a slack event adapter to responds to slack event API
+            slack_events_adapter = SlackEventAdapter(signing_secret=os.getenv('SLACK_SIGNING_SECRET'), endpoint="/slack/events")
+            backup_channel_list = slack_web_client.conversations_list(types="public_channel")
+            name_id = []
+            for channel in range(len(backup_channel_list.data['channels'])):
+                name_id.append((backup_channel_list.data['channels'][channel]['name'], backup_channel_list.data['channels'][channel]['id']))
+            # responder to user's greeting messages
+            @slack_events_adapter.on("message")
+            def handle_message(event_data):
+                message = event_data["event"]
+                # If the incoming message contains "hi" and "sync ends service", 
+                # then respond with a "Hello" message and give user choices aboutcollections
+                if message.get("subtype") is None and "hi" in message.get('text') and "sync ends service" in message.get('text'):
+                    channel = message["channel"]
+                    message = "Hello <@%s>! :tada:" % message["user"]
+                    slack_web_client.chat_postMessage(channel=channel, text=message)
+            
+            # responder to channel_created event
+            @slack_events_adapter.on("channel_created")
+            def handle_channel_created(event_data):
+                print(name_id)
+                message = event_data["event"]
+                new_name = message["channel"]["name"]
+                channel_id = message["channel"]["id"]
+                name_id.append((new_name,channel_id))
+                print(name_id)
+            
+            # responder to channel_deleted event
+            @slack_events_adapter.on("channel_deleted")
+            def handle_channel_deleted(event_data):
+                message = event_data["event"]
+                channel_id = message["channel"]
+                #print(name_id)
+                #print(channel_id)
+                for i in range(len(name_id)):
+                    #print(name_id[i])
+                    #print(name_id[i][1])
+                    if name_id[i][1] == channel_id:
+                        name_id.pop(i)
+
+            # responder to channel_rename event
+            @slack_events_adapter.on("channel_rename")
+            def handle_channel_rename(event_data):
+                message = event_data["event"]
+                new_name = message["channel"]["name"]
+                channel_id = message["channel"]["id"]
+                for channel in range(len(backup_channel_list.data['channels'])):
+                    if channel_id == backup_channel_list.data['channels'][channel]['id']:
+                        old_name = backup_channel_list.data['channels'][channel]['name']
+                    if "general" == backup_channel_list.data['channels'][channel]['name']:
+                        general_id = backup_channel_list.data['channels'][channel]['id']
+                text = "New channel name: %s detected, the old name is %s if this is a postman collection channel we do not suggest you to change the channel name" % (new_name, old_name)
+                slack_web_client.chat_postMessage(channel=general_id, text=text)
+            
+            # responder to app_uninstalled
+            @slack_events_adapter.on("app_uninstalled")
+            def handle_app_uninstalled(event_data):
+                #app is uninstalled, exits.
+                exit(0)
 
             # responder to user's request on collection information
             @slack_events_adapter.on("app_mention")
