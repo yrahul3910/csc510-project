@@ -172,19 +172,25 @@ def main():
             # responder to channel_created event
             @slack_events_adapter.on("channel_created")
             def handle_channel_created(event_data):
+                print(name_id)
                 message = event_data["event"]
                 new_name = message["channel"]["name"]
                 channel_id = message["channel"]["id"]
                 name_id.append((new_name,channel_id))
+                print(name_id)
             
             # responder to channel_deleted event
-            @slack_events_adapter.on("channel_created")
-            def handle_channel_created(event_data):
+            @slack_events_adapter.on("channel_deleted")
+            def handle_channel_deleted(event_data):
                 message = event_data["event"]
                 channel_id = message["channel"]
+                #print(name_id)
+                #print(channel_id)
                 for i in range(len(name_id)):
+                    #print(name_id[i])
+                    #print(name_id[i][1])
                     if name_id[i][1] == channel_id:
-                        print(True)
+                        name_id.pop(i)
 
             # responder to channel_rename event
             @slack_events_adapter.on("channel_rename")
