@@ -127,22 +127,29 @@ def main():
         while True:
             print("\nChoose a collection you would like to integrate:")
             # A list of all the postman collection name to be used latter
+            # All the collection names will be got from postman API
             collection_list = []
-            # User selects a specfic collection to be linked to the sync ends service
+
+            # In the old CLI implementation, user selects a specfic collection 
+            # to be linked to the sync ends service. User will give command line 
+            # choices to pick the collection that he/she wants to post in slack
             for index, collection in enumerate(all_collections['collections'], 1):
                 print(str(index) + '. ' + str(collection['name']))
                 collection_list.append(str(collection['name']))
             collection_choice = input("\nEnter your choice: ")
 
+            # sanity check to see that user input is valid
             if 1 <= int(collection_choice) <= len(all_collections['collections']):
                 break
-
+        
+        # get the selected collection
         selected_collection = all_collections['collections'][int(
             collection_choice) - 1]
 
         collection_name = str(
             all_collections['collections'][int(collection_choice) - 1]['name'])
 
+        # logic to detect the postman collection change
         while True:
             # Get the changes that need to be sent to slack
             changes_detected = get_selected_collection(
@@ -151,16 +158,33 @@ def main():
             # Create a slack client to use slack API
             slack_web_client = WebClient(token=os.getenv('SLACK_BOT_TOKEN'))
 
-
             # Create a slack event adapter to responds to slack event API
             slack_events_adapter = SlackEventAdapter(signing_secret=os.getenv('SLACK_SIGNING_SECRET'), endpoint="/slack/events")
+
+            # A local backupo slack channel list to handle slack channel cahnges:
+            # 1. A user manually creates a channel, then our app should receive the channel create event then
+            #    add the channel info into the local list
+            # 1. A user manually deletes a channel, then our app should receive the channel delete event then
+            #    delete the channel info from the local list
+            # 3. A user rename a channel, then our app post a warning in the slack general channel to warn the 
+            #    user that if the channel is a postman collection channel, its name should not be changed for
+            #    the clearity of other users.
             backup_channel_list = slack_web_client.conversations_list(types="public_channel")
+
+            # We only care about the name and id for a slack channel, store them into a local list for further use.
             name_id = []
             for channel in range(len(backup_channel_list.data['channels'])):
                 name_id.append((backup_channel_list.data['channels'][channel]['name'], backup_channel_list.data['channels'][channel]['id']))
+
             # responder to user's greeting messages
             @slack_events_adapter.on("message")
             def handle_message(event_data):
+                """
+                Input: slack message event API data
+                Description: if the user just try to say hi with our app, 
+                we responds with a greeting message. this should be considerd 
+                as basic toy function of a bot.
+                """
                 message = event_data["event"]
                 # If the incoming message contains "hi" and "sync ends service", 
                 # then respond with a "Hello" message and give user choices aboutcollections
@@ -172,29 +196,43 @@ def main():
             # responder to channel_created event
             @slack_events_adapter.on("channel_created")
             def handle_channel_created(event_data):
-                print(name_id)
+                """
+                Input: slack channel_created event API data
+                Description: If a user manually creates a channel, 
+                then our app should receive the channel created event then
+                add the channel info into the local list
+                """
                 message = event_data["event"]
                 new_name = message["channel"]["name"]
                 channel_id = message["channel"]["id"]
                 name_id.append((new_name,channel_id))
-                print(name_id)
             
             # responder to channel_deleted event
             @slack_events_adapter.on("channel_deleted")
             def handle_channel_deleted(event_data):
+                """
+                Input: slack channel_deleted event API data
+                Description: If a user manually deletes a channel, 
+                then our app should receive the channel deleted event 
+                then remove the channel info from the local list
+                """
                 message = event_data["event"]
                 channel_id = message["channel"]
-                #print(name_id)
-                #print(channel_id)
                 for i in range(len(name_id)):
-                    #print(name_id[i])
-                    #print(name_id[i][1])
                     if name_id[i][1] == channel_id:
                         name_id.pop(i)
 
             # responder to channel_rename event
             @slack_events_adapter.on("channel_rename")
             def handle_channel_rename(event_data):
+                """
+                Input: slack channel_rename event API data
+                Description: If a user manually rename a channel, 
+                then our app post a warning in the slack general 
+                channel to warn the user that if the channel is a 
+                postman collection channel, its name should not be 
+                changed for the clearity of other users.
+                """
                 message = event_data["event"]
                 new_name = message["channel"]["name"]
                 channel_id = message["channel"]["id"]
@@ -209,12 +247,33 @@ def main():
             # responder to app_uninstalled
             @slack_events_adapter.on("app_uninstalled")
             def handle_app_uninstalled(event_data):
-                #app is uninstalled, exits.
+                """
+                Input: slack app_uninstalled event API data
+                Description: If a user remove our app, exit.
+                """
                 exit(0)
 
             # responder to user's request on collection information
             @slack_events_adapter.on("app_mention")
             def handle_app_mention(event_data):
+                """
+                Input: slack app_mention event API data
+                Description: If a user @ our bot with key word "show",
+                then we call slack API to get all the channel currently 
+                avaliable, compare each channel's name with the user input
+                text. If you channel name show up, we know that the user is
+                asking for info about that postman collection. Our app check
+                whether a channel for this postman collection is creaed already.
+                If a channel is avaliable, then we post all the changes detected
+                in the exist channel. If no channel for the postman collection
+                is created already, we create a slack channel with slack API,
+                give it a name the same as the postman collection and meet the 
+                slack channel naming convention. We post the message in the newly
+                created channel. In both case, we also post the message in the 
+                channel that the bot is @ in to help the user better manage the 
+                info. We also add ithe newly created channle name and id into our 
+                local copy.
+                """
                 # slack event, dictionary obj
                 message = event_data["event"]
                 # get the channel that the bot is @ in
@@ -268,11 +327,14 @@ def main():
             # Error events
             @slack_events_adapter.on("error")
             def error_handler(err):
+                """
+                Input: slack error event API data
+                Description: When error happens, printout the error
+                """
                 print("ERROR: " + str(err))
 
             # Check if this channel already existed, if not create a new one
-            channel_list = slack_web_client.conversations_list(
-                types="public_channel")
+            channel_list = slack_web_client.conversations_list(types="public_channel")
             existed = False
             for channel in range(len(channel_list.data['channels'])):
                 if collection_name.lower().replace(" ", "_") == channel_list.data['channels'][channel]['name']:
@@ -280,7 +342,7 @@ def main():
 
             dic = '{\'name\':\''+collection_name.lower().replace(" ", "_")+'\'}'
             dic = eval(dic)
-            print(existed)
+    
             if not existed:
                 response = slack_web_client.api_call(
                     api_method='conversations.create',
