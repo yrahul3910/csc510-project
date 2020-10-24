@@ -197,11 +197,11 @@ def main():
                 message = event_data["event"]
                 new_name = message["channel"]["name"]
                 channel_id = message["channel"]["id"]
-                for channel in range(len(backup_channel_list.data['channels'])):
-                    if channel_id == backup_channel_list.data['channels'][channel]['id']:
-                        old_name = backup_channel_list.data['channels'][channel]['name']
-                    if "general" == backup_channel_list.data['channels'][channel]['name']:
-                        general_id = backup_channel_list.data['channels'][channel]['id']
+                for channel in name_id:
+                    if channel_id == channel[1]:
+                        old_name = channel[0]
+                    if "general" == channel[0]:
+                        general_id = channel[1]
                 text = "New channel name: %s detected, the old name is %s if this is a postman collection channel we do not suggest you to change the channel name" % (new_name, old_name)
                 slack_web_client.chat_postMessage(channel=general_id, text=text)
             
@@ -294,6 +294,7 @@ def main():
 
                 # if key word in text then we consider to send info about a certein colletion
                 if "show" in text:
+                    print(text)
                     collections_response = get_postman_collections(postman_connection, os.environ['POSTMAN_TOKEN'])
                     all_collections = json.loads(collections_response.read())
                     collection_list = []
@@ -320,6 +321,8 @@ def main():
                                     api_method='conversations.create',
                                     json=dic
                                 )
+                                name_id.append((name.lower().replace(" ", "_"), response['channel']['id']))
+                                
 
                             # Slack Channel to post the message
                             channel = name.lower().replace(" ", "_")
