@@ -113,48 +113,9 @@ def get_selected_collection(collection_id, connection, api_key):
 def main():
     try:
         postman_connection = http.client.HTTPSConnection("api.getpostman.com")
-
-        print("\nWelcome to Sync Ends! End your development overheads today!")
-        print("-----------------------------------------------------------")
-
-        # The Postman API key is required to access all the postman collections in a user's account
-        api_key = os.getenv('POSTMAN_TOKEN')
-        # To get the collections present in a user's Postman account
-        collections_response = get_postman_collections(
-            postman_connection, api_key)
-        all_collections = json.loads(collections_response.read())
-
-        while True:
-            print("\nChoose a collection you would like to integrate:")
-            # A list of all the postman collection name to be used latter
-            # All the collection names will be got from postman API
-            collection_list = []
-
-            # In the old CLI implementation, user selects a specfic collection 
-            # to be linked to the sync ends service. User will give command line 
-            # choices to pick the collection that he/she wants to post in slack
-            for index, collection in enumerate(all_collections['collections'], 1):
-                print(str(index) + '. ' + str(collection['name']))
-                collection_list.append(str(collection['name']))
-            collection_choice = input("\nEnter your choice: ")
-
-            # sanity check to see that user input is valid
-            if 1 <= int(collection_choice) <= len(all_collections['collections']):
-                break
-        
-        # get the selected collection
-        selected_collection = all_collections['collections'][int(
-            collection_choice) - 1]
-
-        collection_name = str(
-            all_collections['collections'][int(collection_choice) - 1]['name'])
-
-        # logic to detect the postman collection change
         while True:
             # Get the changes that need to be sent to slack
-            changes_detected = get_selected_collection(
-                selected_collection['uid'], postman_connection, api_key)
-
+            #changes_detected = get_selected_collection(selected_collection['uid'], postman_connection, api_key)
             # Create a slack client to use slack API
             slack_web_client = WebClient(token=os.getenv('SLACK_BOT_TOKEN'))
 
@@ -280,8 +241,64 @@ def main():
                 current_channel = message["channel"]
                 # the text user send
                 text = message.get("text")
+
+                if "detect" in text:
+                    if os.environ['POSTMAN_TOKEN'] == '':
+                        message = {
+                            "channel": current_channel,
+                            "blocks": [{
+                                "type": "section",
+                                "text": {
+                                    "type": "plain_text",
+                                    "text": "Please provide your POSTMAN API key to use the service."
+                                }
+                            }],
+                        }
+                        slack_web_client.chat_postMessage(**message)
+                
+                if "PMAK-" in text:
+                    os.environ['POSTMAN_TOKEN'] = text.split()[1]
+                    message = {
+                        "channel": current_channel,
+                        "blocks": [{
+                            "type": "section",
+                            "text": {
+                                "type": "plain_text",
+                                "text": "POSTMAN TOKEN received."
+                            }
+                        }],
+                    }
+                    slack_web_client.chat_postMessage(**message)
+
+                if "options" in text:
+                    collections_response = get_postman_collections(postman_connection, os.environ['POSTMAN_TOKEN'])
+                    all_collections = json.loads(collections_response.read())
+                    text = ''
+                    for index, collection in enumerate(all_collections['collections'], 1):
+                        text = text + str(index) + '. ' + str(collection['name']) + '\n'
+
+                    # Get the onboarding message payload
+                    message = {
+                        "channel": current_channel,
+                        "blocks": [{
+                            "type": "section",
+                            "text": {
+                                "type": "plain_text",
+                                "text": text
+                            }
+                        }],
+                    }
+                    # Post the onboarding message in Slack
+                    slack_web_client.chat_postMessage(**message)
+
+
                 # if key word in text then we consider to send info about a certein colletion
                 if "show" in text:
+                    collections_response = get_postman_collections(postman_connection, os.environ['POSTMAN_TOKEN'])
+                    all_collections = json.loads(collections_response.read())
+                    collection_list = []
+                    for index, collection in enumerate(all_collections['collections'], 1):
+                        collection_list.append(str(collection['name']))
                     for name in collection_list:
                         if name in text:
                             # Check if this channel already existed, if not create a new one
@@ -306,6 +323,10 @@ def main():
 
                             # Slack Channel to post the message
                             channel = name.lower().replace(" ", "_")
+
+                            for collection in all_collections['collections']:
+                                if collection['name'] == name:
+                                    changes_detected = get_selected_collection(collection['uid'], postman_connection, os.environ['POSTMAN_TOKEN'])
 
                             # Get the onboarding message payload
                             message = {
@@ -333,39 +354,7 @@ def main():
                 """
                 print("ERROR: " + str(err))
 
-            # Check if this channel already existed, if not create a new one
-            channel_list = slack_web_client.conversations_list(types="public_channel")
-            existed = False
-            for channel in range(len(channel_list.data['channels'])):
-                if collection_name.lower().replace(" ", "_") == channel_list.data['channels'][channel]['name']:
-                    existed = True
-
-            dic = '{\'name\':\''+collection_name.lower().replace(" ", "_")+'\'}'
-            dic = eval(dic)
-    
-            if not existed:
-                response = slack_web_client.api_call(
-                    api_method='conversations.create',
-                    json=dic
-                )
-
-            # Slack Channel to post the message
-            channel = collection_name.lower().replace(" ", "_")
-
-            # Get the onboarding message payload
-            message = {
-                "channel": channel,
-                "blocks": [
-                    {"type": "section", "text": {
-                        "type": "plain_text", "text": changes_detected}}
-                ],
-            }
-
-            # Post the onboarding message in Slack
-            slack_web_client.chat_postMessage(**message)
-            # Start the server to listen to event
             slack_events_adapter.start(port=3000)
-            time.sleep(3600)
     except Exception as e:
         print(e)
 
