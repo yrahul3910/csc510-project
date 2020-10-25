@@ -68,14 +68,16 @@ Now that team is created, let us create a slack bot
 6. Select Add features and functionality 
 7. Select Bots and then check Always Show My Bot as Online and Messages Tab
 8. Select Permissions, then in the Bot Token Scopes select Add an OAuth Scope add all the following:
-![]((https://github.com/JialinC/csc510-project/blob/master/etc/OAuthscope.png))
-9. Select Install App then copy the OAuth Access Token. Ex: xoxp-1412629584949-1415718378626-1437384197463-adbd7cda4d39487a2adaeba74cc8468c
+![](https://github.com/JialinC/csc510-project/blob/master/etc/OAuthscope.png)
+9. Select Install App then copy the OAuth Access Token. 
+Ex: xoxp-1412629584949-1415718378626-1437384197463-adbd7cda4d39487a2adaeba74cc8468c
 You will need this in future set up
 10. Go back to the the Basic information page and select Event Subscriptions
 11. Check Enable Events
 12. Follow this link https://github.com/slackapi/python-slack-events-api to set up the Slack event API
 We will need to subcribe to these event:
-![]((https://github.com/JialinC/csc510-project/blob/master/etc/event.png))
+![](https://github.com/JialinC/csc510-project/blob/master/etc/event.png)
+
 
 # Execution
 Create a file called .env, you can follow the env_default file to see what is needed. Copy your SLACKBOT_TOKEN and
