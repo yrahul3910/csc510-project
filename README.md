@@ -14,7 +14,7 @@ Sync Ends is an automated bridge to sync service owners and service consumers. E
 
 [![Watch the video](https://github.com/varsha5595/csc510-project/blob/master/etc/thumbnail.PNG)](https://youtu.be/SeNdRiI1axA)
 
-[![Watch the video](https://github.com/JialinC/csc510-project/tree/master/etc/demo.png)](https://www.youtube.com/watch?v=aam-1JBTSUM)
+[![Watch the video](https://github.com/JialinC/csc510-project/blob/master/etc/demo.png)](https://www.youtube.com/watch?v=aam-1JBTSUM)
 
 # Architecture Diagram
 <img src="./etc/architecture.PNG" height="500" width="800"/>
