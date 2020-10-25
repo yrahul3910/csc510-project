@@ -85,7 +85,7 @@ SLACK_SIGNING_SECRET into the file. Then everything should work fine.
 
 # Testing
 We offer a CLI version and a Slack APP version. Both should work by just run the code in src. You can follow the introduction video to do functionality test.
-
+Visit our wiki page to see more about blackbox testing:https://github.com/JialinC/csc510-project/wiki/Black-Box-test-plan
 ```
 cd src
 python3 sync_ends_service.py
